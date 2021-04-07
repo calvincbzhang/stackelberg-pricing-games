@@ -10,18 +10,13 @@ import java.rmi.server.UnicastRemoteObject;
  * To implement some common method of players
  * @author Xin
  */
-public abstract class PlayerImpl
-	implements Player
-{
+public abstract class PlayerImpl implements Player {
 	/* The stub of the platform */
 	protected Platform m_platformStub;
 	/* The type of this player, i.e. LEADER or FOLLOWER */
 	protected final PlayerType m_type;
 
-	protected PlayerImpl(final PlayerType p_type,
-		final String p_displayName)
-		throws RemoteException, NotBoundException
-	{
+	protected PlayerImpl(final PlayerType p_type, final String p_displayName) throws RemoteException, NotBoundException {
 		m_type = p_type;
 		registerRMI();
 		registerPlatform(p_displayName);
@@ -31,9 +26,7 @@ public abstract class PlayerImpl
 	 * Register this instance to RMI registry
 	 * @throws RemoteException
 	 */
-	private void registerRMI()
-		throws RemoteException
-	{
+	private void registerRMI() throws RemoteException {
 		final Player l_playerStub = (Player) UnicastRemoteObject.exportObject(this, 0);
 		final Registry l_registry = LocateRegistry.getRegistry();
 		l_registry.rebind(m_type.toString(), l_playerStub);
@@ -46,9 +39,7 @@ public abstract class PlayerImpl
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
-	private void registerPlatform(final String p_displayName)
-		throws RemoteException, NotBoundException
-	{
+	private void registerPlatform(final String p_displayName) throws RemoteException, NotBoundException {
 		final Registry l_registry = LocateRegistry.getRegistry();
 		m_platformStub = (Platform) l_registry.lookup("Platform");
 		m_platformStub.registerPlayer(m_type, p_displayName);
