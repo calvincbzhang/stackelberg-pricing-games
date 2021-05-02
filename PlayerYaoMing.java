@@ -22,6 +22,7 @@ final class PlayerYaoMing extends PlayerImpl {
 	private double expectedProfit = 0;
 	private double a_star;
 	private double b_star;
+	private int window_size = 15;
 
 	PlayerYaoMing() throws RemoteException, NotBoundException {
 		super(PlayerType.LEADER, "Yao Ming Leader");
@@ -60,8 +61,9 @@ final class PlayerYaoMing extends PlayerImpl {
 		
 		System.out.println("Mean Squared Error " + mse);
 		System.out.println("Mean Absolute Percentage Error " + mape);
+		System.out.println("-------------------------------------------------");
 
-		// CLEAN MEMORY
+		// clean memory
 		this.data.clear();
 		this.expectedUF.clear();
 		this.profitAccumulation = 0;
@@ -91,7 +93,7 @@ final class PlayerYaoMing extends PlayerImpl {
 		double sum_Lsq = 0;
 		double sum_LF = 0;
 
-		for (int t=0; t < T; t++) {
+		for (int t=T-window_size; t < T; t++) {
 			Record record = this.data.get(t);
 			double u_l_t = record.m_leaderPrice;
 			double u_f_t = record.m_followerPrice;
@@ -102,8 +104,8 @@ final class PlayerYaoMing extends PlayerImpl {
 			sum_LF += (u_l_t * u_f_t);
 		}
 
-		double a_star = ((sum_Lsq * sum_F) - (sum_L * sum_LF)) / ((T * sum_Lsq) - (sum_L * sum_L));
-		double b_star = ((T * sum_LF) - (sum_L * sum_F)) / ((T * sum_Lsq) - (sum_L * sum_L));
+		double a_star = ((sum_Lsq * sum_F) - (sum_L * sum_LF)) / ((window_size * sum_Lsq) - (sum_L * sum_L));
+		double b_star = ((window_size * sum_LF) - (sum_L * sum_F)) / ((window_size * sum_Lsq) - (sum_L * sum_L));
 
 		this.a_star = a_star;
 		this.b_star = b_star;
