@@ -7,24 +7,23 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.lang.Math;
 
-
 /**
  * Extends the PlayerImpl class to create a leader for a two-player Stackelberg
  * pricing Game.
  * @author Ivan Dewerpe
  * @author Chen Bo Calvin Zhang
  */
-final class PlayerYaoMing extends PlayerImpl {
+final class PlayerPolly extends PlayerImpl {
 
 	private ArrayList<Record> data = new ArrayList<Record>();
 	private ArrayList<Double> expectedUF = new ArrayList<Double>();
 	private double profitAccumulation = 0;
 	private double expectedProfit = 0;
-	private double a_star;
-	private double b_star;
+	private PolynomialRegression regression;
+    private int degree = 4;
 
-	PlayerYaoMing() throws RemoteException, NotBoundException {
-		super(PlayerType.LEADER, "Yao Ming Leader");
+	PlayerPolly() throws RemoteException, NotBoundException {
+        super(PlayerType.LEADER, "Polly Leader");
 	}
 
 	@Override
@@ -34,6 +33,8 @@ final class PlayerYaoMing extends PlayerImpl {
         for (int t = 0; t < history_len; t++) {
             this.data.add(m_platformStub.query(this.m_type, t+1));
 		}
+
+		System.out.println("Degree " + degree);
 	}
 	
 	@Override
@@ -89,32 +90,37 @@ final class PlayerYaoMing extends PlayerImpl {
 		return dailyProfit(real_ul, real_uf, 1);
 	}
 
-	public void estimateReaction() {
-		int T = this.data.size();
-		double sum_L = 0;
-		double sum_F = 0;
-		double sum_Lsq = 0;
-		double sum_LF = 0;
+	public double[] getPredictedProfit(double leaderPrice, int p_date, int n) {
+		double[] price_and_profit = {1.0, 1.0};
+		price_and_profit[0] = this.regression.predict(leaderPrice);
+		price_and_profit[1] = dailyProfit(leaderPrice, price_and_profit[0], 1);
+		
+		return price_and_profit;
+	
+	} //getPredictedProfit
+	
+	public double[] getPredictedLeaderPrice(int p_date, int n) {
+		double predictedProfit, followerPrice;
+		double priceBound = 12;
+		double[] returns = {-1000.0, 1.0, 0.0};
+		
+		for (double leaderPrice = 1; leaderPrice <= priceBound; leaderPrice += 0.0025) {
+			
+			double[] price_and_profit = getPredictedProfit(leaderPrice, p_date, n);
+			followerPrice = price_and_profit[0];
+			predictedProfit = price_and_profit[1];
+	
+			if (predictedProfit >= returns[0]) {
+	
+				returns[0] = predictedProfit;
+				returns[1] = leaderPrice;
+				returns[2] = followerPrice;
+	
+			} //if
+		} //for
 
-		for (int t = 0; t < T; t++) {
-			Record record = this.data.get(t);
-			double u_l_t = record.m_leaderPrice;
-			double u_f_t = record.m_followerPrice;
-
-			sum_L += u_l_t;
-			sum_F += u_f_t;
-			sum_Lsq += (u_l_t * u_l_t);
-			sum_LF += (u_l_t * u_f_t);
-		}
-
-		double a_star = ((sum_Lsq * sum_F) - (sum_L * sum_LF)) / ((T * sum_Lsq) - (sum_L * sum_L));
-		double b_star = ((T * sum_LF) - (sum_L * sum_F)) / ((T * sum_Lsq) - (sum_L * sum_L));
-
-		this.a_star = a_star;
-		this.b_star = b_star;
-
-		return;
-	}
+		return returns;
+	} //getPredictedLeaderPrice
 
 	/**
 	 * To inform this instance to proceed to a new simulation day
@@ -123,26 +129,39 @@ final class PlayerYaoMing extends PlayerImpl {
 	 */
 	@Override
 	public void proceedNewDay(int p_date) throws RemoteException {
+
 		// update data array
 		if (p_date > 101) {
 			this.data.add(m_platformStub.query(this.m_type, p_date - 1));
 			profitAccumulation += computeProfitOnDay(p_date - 1);
 		}
 
-		// estimate the coefficient for the reaction function
-		estimateReaction();
+        int array_length = this.data.size();
+        double[] x = new double[array_length];
+        double[] y = new double[array_length];
 
+        for (int i = 0; i < array_length; i++) {
+            Record record = data.get(i);
+            x[i] = record.m_leaderPrice;
+            y[i] = record.m_followerPrice;
+        }
+
+        regression = new PolynomialRegression(x, y, degree);
+        
 		// estimated reaction
-		double u_l = (0.3 * (this.b_star - this.a_star) - 3) / (2 * ((0.3 * this.b_star - 1)));
-		double u_f = (this.a_star + this.b_star * u_l);
+		double[] predictedLP = getPredictedLeaderPrice(p_date, 2);
+		double eProfit = predictedLP[0];
+		double u_l = predictedLP[1];
+		double u_f = predictedLP[2];
+
 		expectedUF.add(u_f);
-		expectedProfit += dailyProfit(u_l, u_f, 1);
+		expectedProfit += eProfit;
 		
 		m_platformStub.publishPrice(m_type, (float) u_l);
 		
 	}
 
     public static void main(final String[] p_args) throws RemoteException, NotBoundException {
-		new PlayerYaoMing();
+		new PlayerPolly();
 	}
 }

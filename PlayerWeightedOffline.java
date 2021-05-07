@@ -14,7 +14,7 @@ import java.lang.Math;
  * @author Ivan Dewerpe
  * @author Chen Bo Calvin Zhang
  */
-final class PlayerYaoMing extends PlayerImpl {
+final class PlayerWeightedOffline extends PlayerImpl {
 
 	private ArrayList<Record> data = new ArrayList<Record>();
 	private ArrayList<Double> expectedUF = new ArrayList<Double>();
@@ -22,9 +22,10 @@ final class PlayerYaoMing extends PlayerImpl {
 	private double expectedProfit = 0;
 	private double a_star;
 	private double b_star;
+	private double lambda = 0.99;
 
-	PlayerYaoMing() throws RemoteException, NotBoundException {
-		super(PlayerType.LEADER, "Yao Ming Leader");
+	PlayerWeightedOffline() throws RemoteException, NotBoundException {
+		super(PlayerType.LEADER, "Offline Weighted Leader");
 	}
 
 	@Override
@@ -34,6 +35,11 @@ final class PlayerYaoMing extends PlayerImpl {
         for (int t = 0; t < history_len; t++) {
             this.data.add(m_platformStub.query(this.m_type, t+1));
 		}
+
+		System.out.println("Lambda: " + lambda);
+		estimateReaction();
+		System.out.println("A star: " + this.a_star);
+		System.out.println("B star: " + this.b_star);
 	}
 	
 	@Override
@@ -95,20 +101,23 @@ final class PlayerYaoMing extends PlayerImpl {
 		double sum_F = 0;
 		double sum_Lsq = 0;
 		double sum_LF = 0;
+		double sum_lambda = 0;
 
 		for (int t = 0; t < T; t++) {
 			Record record = this.data.get(t);
 			double u_l_t = record.m_leaderPrice;
 			double u_f_t = record.m_followerPrice;
+			double lambda_pow = Math.pow(lambda, T - t);
 
-			sum_L += u_l_t;
-			sum_F += u_f_t;
-			sum_Lsq += (u_l_t * u_l_t);
-			sum_LF += (u_l_t * u_f_t);
+			sum_L += lambda_pow * u_l_t;
+			sum_F += lambda_pow * u_f_t;
+			sum_Lsq += lambda_pow * (u_l_t * u_l_t);
+			sum_LF += lambda_pow * (u_l_t * u_f_t);
+			sum_lambda += lambda_pow;
 		}
 
-		double a_star = ((sum_Lsq * sum_F) - (sum_L * sum_LF)) / ((T * sum_Lsq) - (sum_L * sum_L));
-		double b_star = ((T * sum_LF) - (sum_L * sum_F)) / ((T * sum_Lsq) - (sum_L * sum_L));
+		double a_star = ((sum_Lsq * sum_F) - (sum_L * sum_LF)) / ((sum_lambda * sum_Lsq) - (sum_L * sum_L));
+		double b_star = ((sum_lambda * sum_LF) - (sum_L * sum_F)) / ((sum_lambda * sum_Lsq) - (sum_L * sum_L));
 
 		this.a_star = a_star;
 		this.b_star = b_star;
@@ -129,9 +138,6 @@ final class PlayerYaoMing extends PlayerImpl {
 			profitAccumulation += computeProfitOnDay(p_date - 1);
 		}
 
-		// estimate the coefficient for the reaction function
-		estimateReaction();
-
 		// estimated reaction
 		double u_l = (0.3 * (this.b_star - this.a_star) - 3) / (2 * ((0.3 * this.b_star - 1)));
 		double u_f = (this.a_star + this.b_star * u_l);
@@ -143,6 +149,6 @@ final class PlayerYaoMing extends PlayerImpl {
 	}
 
     public static void main(final String[] p_args) throws RemoteException, NotBoundException {
-		new PlayerYaoMing();
+		new PlayerWeightedOffline();
 	}
 }

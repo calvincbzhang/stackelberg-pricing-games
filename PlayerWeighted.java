@@ -22,20 +22,23 @@ final class PlayerWeighted extends PlayerImpl {
 	private double expectedProfit = 0;
 	private double a_star;
 	private double b_star;
-	private int window_size = 15;
-	private double lambda = 0.95;
+	private int window_size = 100;
+	private double lambda = 0.99;
 
 	PlayerWeighted() throws RemoteException, NotBoundException {
-		super(PlayerType.LEADER, "Yao Ming Weighted Leader");
+		super(PlayerType.LEADER, "Weighted Leader");
 	}
 
 	@Override
 	public void startSimulation(int p_steps) throws RemoteException {
 		int history_len = 100;
 		
-        for (int t=0; t < history_len; t++) {
+        for (int t = 0; t < history_len; t++) {
             this.data.add(m_platformStub.query(this.m_type, t+1));
 		}
+
+		System.out.println("Lambda: " + lambda);
+		System.out.println("Window Size: " + window_size);
 	}
 	
 	@Override
@@ -48,20 +51,24 @@ final class PlayerWeighted extends PlayerImpl {
 
 		double mse = 0;
 		double mape = 0;
+		double mabse = 0;
 
-		for (int t=100; t < data.size(); t++) {
+		for (int t = 100; t < data.size(); t++) {
 			Record u_record = data.get(t);
 			double u_f_hat = expectedUF.get(t-100);
 			double u_f_true = u_record.m_followerPrice;
 			mse += Math.pow(u_f_true - u_f_hat, 2);
 			mape += Math.abs((u_f_true - u_f_hat) / u_f_true);
+			mabse += Math.abs(u_f_true - u_f_hat);
 		}
 
 		mse /= (data.size() - 100);
 		mape /= (data.size() - 100);
+		mabse /= (data.size() - 100);
 		
 		System.out.println("Mean Squared Error " + mse);
 		System.out.println("Mean Absolute Percentage Error " + mape);
+		System.out.println("Mean Absolute Error " + mabse);
 		System.out.println("-------------------------------------------------");
 
 		// clean memory
@@ -95,13 +102,11 @@ final class PlayerWeighted extends PlayerImpl {
 		double sum_LF = 0;
 		double sum_lambda = 0;
 
-		for (int t=T-window_size; t < T; t++) {
+		for (int t = T - window_size; t < T; t++) {
 			Record record = this.data.get(t);
 			double u_l_t = record.m_leaderPrice;
 			double u_f_t = record.m_followerPrice;
 			double lambda_pow = Math.pow(lambda, T - t);
-
-			// System.out.println(lambda_pow);
 
 			sum_L += lambda_pow * u_l_t;
 			sum_F += lambda_pow * u_f_t;
@@ -132,14 +137,11 @@ final class PlayerWeighted extends PlayerImpl {
 			profitAccumulation += computeProfitOnDay(p_date - 1);
 		}
 
-		// estimate the coefficient for the reaction function
 		estimateReaction();
-		// System.out.println(this.a_star);
-		// System.out.println(this.b_star);
 
 		// estimated reaction
-		double u_l = (0.3 * (this.a_star - this.b_star) - 3) / (2 * ((0.3 * this.a_star - 1)));
-		double u_f = (this.a_star * u_l + this.b_star);
+		double u_l = (0.3 * (this.b_star - this.a_star) - 3) / (2 * ((0.3 * this.b_star - 1)));
+		double u_f = (this.a_star + this.b_star * u_l);
 	
 		expectedUF.add(u_f);
 		expectedProfit += dailyProfit(u_l, u_f, 1);

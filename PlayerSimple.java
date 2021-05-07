@@ -14,7 +14,7 @@ import java.lang.Math;
  * @author Ivan Dewerpe
  * @author Chen Bo Calvin Zhang
  */
-final class PlayerYaoMing extends PlayerImpl {
+final class PlayerSimple extends PlayerImpl {
 
 	private ArrayList<Record> data = new ArrayList<Record>();
 	private ArrayList<Double> expectedUF = new ArrayList<Double>();
@@ -23,8 +23,8 @@ final class PlayerYaoMing extends PlayerImpl {
 	private double a_star;
 	private double b_star;
 
-	PlayerYaoMing() throws RemoteException, NotBoundException {
-		super(PlayerType.LEADER, "Yao Ming Leader");
+	PlayerSimple() throws RemoteException, NotBoundException {
+		super(PlayerType.LEADER, "Simple Leader");
 	}
 
 	@Override
@@ -34,6 +34,11 @@ final class PlayerYaoMing extends PlayerImpl {
         for (int t = 0; t < history_len; t++) {
             this.data.add(m_platformStub.query(this.m_type, t+1));
 		}
+
+        // estimate the coefficient for the reaction function
+        estimateReaction();
+        System.out.println("A star: " + this.a_star);
+		System.out.println("B star: " + this.b_star);
 	}
 	
 	@Override
@@ -129,9 +134,6 @@ final class PlayerYaoMing extends PlayerImpl {
 			profitAccumulation += computeProfitOnDay(p_date - 1);
 		}
 
-		// estimate the coefficient for the reaction function
-		estimateReaction();
-
 		// estimated reaction
 		double u_l = (0.3 * (this.b_star - this.a_star) - 3) / (2 * ((0.3 * this.b_star - 1)));
 		double u_f = (this.a_star + this.b_star * u_l);
@@ -143,6 +145,6 @@ final class PlayerYaoMing extends PlayerImpl {
 	}
 
     public static void main(final String[] p_args) throws RemoteException, NotBoundException {
-		new PlayerYaoMing();
+		new PlayerSimple();
 	}
 }
